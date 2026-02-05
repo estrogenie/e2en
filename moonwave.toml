@@ -62,8 +62,7 @@ description = "Built-in player and character lifecycle hooks with automatic clea
 title = "Battle-Tested Patterns"
 description = "Inspired by Knit with improvements. Dependency injection, middleware support, and component system included."
 
-[classOrder]
-classes = [
+classOrder = [
     "e2enServer",
     "e2enClient",
     "RemoteSignal",
@@ -75,16 +74,3 @@ classes = [
     "Signal",
     "Util"
 ]
-
-[apiCategories]
-[[apiCategories.category]]
-name = "Core"
-classes = ["e2enServer", "e2enClient"]
-
-[[apiCategories.category]]
-name = "Networking"
-classes = ["RemoteSignal", "RemoteProperty", "ClientRemoteSignal", "ClientRemoteProperty"]
-
-[[apiCategories.category]]
-name = "Utilities"
-classes = ["Component", "Trove", "Signal", "Util"]
