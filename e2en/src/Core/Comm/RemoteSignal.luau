@@ -1,5 +1,31 @@
 --!strict
 
+--[=[
+	@class RemoteSignal
+	@server
+
+	Server-side signal for client-server communication.
+
+	Created automatically when using `e2en.CreateSignal()` in a Service's
+	Client table.
+
+	```lua
+	-- Server
+	local MyService = e2en.CreateService({
+		Name = "MyService",
+		Client = {
+			PlayerDied = e2en.CreateSignal(),
+		},
+	})
+
+	-- Fire to one player
+	self.Client.PlayerDied:Fire(player, data)
+
+	-- Fire to all players
+	self.Client.PlayerDied:FireAll(data)
+	```
+]=]
+
 local Players = game:GetService("Players")
 
 local Types = require(script.Parent.Parent.Parent.Types)
@@ -74,6 +100,12 @@ function RemoteSignal.new<T...>(
 	return self :: any
 end
 
+--[=[
+	Fires the signal to a specific player.
+
+	@param player Player -- The target player
+	@param ... T... -- Data to send
+]=]
 function RemoteSignal.Fire<T...>(self: RemoteSignal<T...>, player: Player, ...: T...)
 	local args = table.pack(...)
 	local shouldContinue, processedArgs = RunOutboundMiddleware(self._middleware, player, self._serviceName, self._signalName, args)
@@ -83,6 +115,11 @@ function RemoteSignal.Fire<T...>(self: RemoteSignal<T...>, player: Player, ...: 
 	(self._remote :: RemoteEvent):FireClient(player, table.unpack(processedArgs))
 end
 
+--[=[
+	Fires the signal to all players.
+
+	@param ... T... -- Data to send
+]=]
 function RemoteSignal.FireAll<T...>(self: RemoteSignal<T...>, ...: T...)
 	local args = table.pack(...)
 	local shouldContinue, processedArgs = RunOutboundMiddleware(self._middleware, nil, self._serviceName, self._signalName, args)
@@ -92,6 +129,12 @@ function RemoteSignal.FireAll<T...>(self: RemoteSignal<T...>, ...: T...)
 	(self._remote :: RemoteEvent):FireAllClients(table.unpack(processedArgs))
 end
 
+--[=[
+	Fires the signal to a list of players.
+
+	@param players {Player} -- The target players
+	@param ... T... -- Data to send
+]=]
 function RemoteSignal.FireFor<T...>(self: RemoteSignal<T...>, players: { Player }, ...: T...)
 	local remote = self._remote :: RemoteEvent
 	local args = table.pack(...)
@@ -103,6 +146,12 @@ function RemoteSignal.FireFor<T...>(self: RemoteSignal<T...>, players: { Player 
 	end
 end
 
+--[=[
+	Fires the signal to all players except one.
+
+	@param exceptPlayer Player -- The player to exclude
+	@param ... T... -- Data to send
+]=]
 function RemoteSignal.FireExcept<T...>(self: RemoteSignal<T...>, exceptPlayer: Player, ...: T...)
 	local remote = self._remote :: RemoteEvent
 	local args = table.pack(...)
@@ -116,6 +165,18 @@ function RemoteSignal.FireExcept<T...>(self: RemoteSignal<T...>, exceptPlayer: P
 	end
 end
 
+--[=[
+	Fires the signal to players matching a predicate.
+
+	```lua
+	self.Client.TeamUpdate:FireFilter(function(player)
+		return player.Team == Teams.Red
+	end, data)
+	```
+
+	@param predicate (Player, T...) -> boolean -- Filter function
+	@param ... T... -- Data to send
+]=]
 function RemoteSignal.FireFilter<T...>(self: RemoteSignal<T...>, predicate: (Player, T...) -> boolean, ...: T...)
 	local remote = self._remote :: RemoteEvent
 	local args = table.pack(...)
@@ -129,10 +190,25 @@ function RemoteSignal.FireFilter<T...>(self: RemoteSignal<T...>, predicate: (Pla
 	end
 end
 
+--[=[
+	Connects a callback to listen for client fires.
+
+	```lua
+	self.Client.AttackRequest:Connect(function(player, target)
+		handleAttack(player, target)
+	end)
+	```
+
+	@param callback (player: Player, T...) -> () -- The callback function
+	@return Connection -- The connection
+]=]
 function RemoteSignal.Connect<T...>(self: RemoteSignal<T...>, callback: (player: Player, T...) -> ()): Connection
 	return (self._remote :: RemoteEvent).OnServerEvent:Connect(callback) :: any
 end
 
+--[=[
+	Destroys the signal and its underlying RemoteEvent.
+]=]
 function RemoteSignal.Destroy<T...>(self: RemoteSignal<T...>)
 	self._remote:Destroy()
 end

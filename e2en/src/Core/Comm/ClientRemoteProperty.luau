@@ -1,5 +1,26 @@
 --!strict
 
+--[=[
+	@class ClientRemoteProperty
+	@client
+
+	Client-side view of a replicated property.
+
+	Obtained via `e2en.GetService()`:
+
+	```lua
+	local MyService = e2en.GetService("MyService")
+
+	-- Get current value
+	local coins = MyService.Coins:Get()
+
+	-- Observe changes
+	MyService.Coins:Observe(function(newCoins)
+		updateCoinsUI(newCoins)
+	end)
+	```
+]=]
+
 local Dependencies = require(script.Parent.Parent.Parent.Dependencies)
 local Signal = Dependencies.GetSignal()
 
@@ -58,14 +79,32 @@ function ClientRemoteProperty.new<T>(remoteEvent: RemoteEvent, getRemote: Remote
 	return self :: any
 end
 
+--[=[
+	Gets the current value.
+
+	@return T -- The current value
+]=]
 function ClientRemoteProperty.Get<T>(self: ClientRemotePropertyInternal<T>): T
 	return self._value :: T
 end
 
+--[=[
+	Checks if the initial value has been received.
+
+	@return boolean -- True if ready
+]=]
 function ClientRemoteProperty.IsReady<T>(self: ClientRemotePropertyInternal<T>): boolean
 	return self._ready
 end
 
+--[=[
+	Yields until the initial value is received.
+
+	Returns nil if the timeout is reached before the value arrives.
+
+	@param timeout number? -- Optional timeout in seconds
+	@return T? -- The value, or nil if timed out
+]=]
 function ClientRemoteProperty.OnReady<T>(self: ClientRemotePropertyInternal<T>, timeout: number?): T?
 	if self._ready then
 		return self._value :: T
@@ -97,6 +136,15 @@ function ClientRemoteProperty.OnReady<T>(self: ClientRemotePropertyInternal<T>, 
 	return coroutine.yield()
 end
 
+--[=[
+	Observes changes to the property value.
+
+	The callback fires immediately with the current value (if ready),
+	then on each subsequent change.
+
+	@param callback (value: T) -> () -- The callback function
+	@return Connection -- The connection
+]=]
 function ClientRemoteProperty.Observe<T>(self: ClientRemotePropertyInternal<T>, callback: (value: T) -> ()): Connection
 	if self._ready then
 		callback(self._value :: T)
@@ -104,6 +152,9 @@ function ClientRemoteProperty.Observe<T>(self: ClientRemotePropertyInternal<T>, 
 	return self._signal:Connect(callback)
 end
 
+--[=[
+	Destroys the property and its internal signal.
+]=]
 function ClientRemoteProperty.Destroy<T>(self: ClientRemotePropertyInternal<T>)
 	if self._connection then
 		self._connection:Disconnect()

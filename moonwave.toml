@@ -1,0 +1,90 @@
+[git]
+gitRepoUrl = "https://github.com/estrogenie/e2en"
+
+[docusaurus]
+title = "e2en"
+tagline = "A system-based Roblox framework with automatic client replication"
+url = "https://estrogenie.github.io"
+baseUrl = "/e2en/"
+favicon = "/favicon.svg"
+
+organizationName = "estrogenie"
+projectName = "e2en"
+
+[docusaurus.navbar]
+title = "e2en"
+
+[[docusaurus.navbar.items]]
+type = "doc"
+docId = "intro"
+position = "left"
+label = "Docs"
+
+[[docusaurus.navbar.items]]
+href = "api"
+position = "left"
+label = "API"
+
+[[docusaurus.navbar.items]]
+href = "https://github.com/estrogenie/e2en"
+label = "GitHub"
+position = "right"
+
+[docusaurus.footer]
+style = "dark"
+copyright = "Copyright 2024"
+
+[home]
+enabled = true
+includeReadme = false
+
+[[home.features]]
+title = "System Architecture"
+description = "Organize your code into self-contained systems with Services (server) and Controllers (client). Each system manages its own state and lifecycle."
+
+[[home.features]]
+title = "Automatic Networking"
+description = "No more manual RemoteEvents. Expose methods, signals, and properties in your Service's Client table and they're automatically available to clients."
+
+[[home.features]]
+title = "Full Type Safety"
+description = "Built from the ground up with strict Luau types. Get full intellisense and catch errors before runtime."
+
+[[home.features]]
+title = "Smart Replication"
+description = "The framework automatically replicates to clients, stripping server-only code. No manual asset management needed."
+
+[[home.features]]
+title = "Lifecycle Management"
+description = "Built-in player and character lifecycle hooks with automatic cleanup via Trove integration. No memory leaks."
+
+[[home.features]]
+title = "Battle-Tested Patterns"
+description = "Inspired by Knit with improvements. Dependency injection, middleware support, and component system included."
+
+[classOrder]
+classes = [
+    "e2enServer",
+    "e2enClient",
+    "RemoteSignal",
+    "RemoteProperty",
+    "ClientRemoteSignal",
+    "ClientRemoteProperty",
+    "Component",
+    "Trove",
+    "Signal",
+    "Util"
+]
+
+[apiCategories]
+[[apiCategories.category]]
+name = "Core"
+classes = ["e2enServer", "e2enClient"]
+
+[[apiCategories.category]]
+name = "Networking"
+classes = ["RemoteSignal", "RemoteProperty", "ClientRemoteSignal", "ClientRemoteProperty"]
+
+[[apiCategories.category]]
+name = "Utilities"
+classes = ["Component", "Trove", "Signal", "Util"]

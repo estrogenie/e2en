@@ -1,5 +1,17 @@
 --!strict
 
+--[=[
+	@class e2enClient
+	@client
+
+	Client-side framework API for creating and managing controllers.
+
+	Access via requiring e2en on the client:
+	```lua
+	local e2en: Types.e2enClient = require(ReplicatedStorage.e2en) :: any
+	```
+]=]
+
 local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -81,6 +93,28 @@ local function BuildServiceProxy(serviceName: string): ServiceProxy
 	return proxy
 end
 
+--[=[
+	Creates a new controller.
+
+	Controllers are client-side singletons that handle local game logic and UI.
+
+	```lua
+	local MyController = e2en.CreateController({
+		Name = "MyController",
+	})
+
+	function MyController:Init()
+		print("Initializing")
+	end
+
+	function MyController:Start()
+		print("Starting")
+	end
+	```
+
+	@param definition ControllerDefinition -- The controller definition table
+	@return Controller -- The created controller
+]=]
 function Client.CreateController<T>(definition: ControllerDefinition & T): Controller & T
 	assert(not started, "Cannot create controllers after framework has started")
 
@@ -94,6 +128,19 @@ function Client.CreateController<T>(definition: ControllerDefinition & T): Contr
 	return controller :: any
 end
 
+--[=[
+	Gets a controller by name.
+
+	Can only be called after the framework has started.
+
+	```lua
+	local UIController = e2en.GetController("UIController")
+	```
+
+	@param controllerName string -- The name of the controller
+	@return Controller -- The controller instance
+	@error "Controller not found" -- If no controller with the given name exists
+]=]
 function Client.GetController(controllerName: string): Controller
 	assert(started, "Cannot get controllers before framework has started")
 	local controller = controllers[controllerName]
@@ -101,10 +148,21 @@ function Client.GetController(controllerName: string): Controller
 	return controller
 end
 
+--[=[
+	Gets all registered controllers.
+
+	@return {[string]: Controller} -- Dictionary of controller name to instance
+]=]
 function Client.GetControllers(): { [string]: Controller }
 	return controllers
 end
 
+--[=[
+	Loads controllers from direct children ModuleScripts.
+
+	@param parent Instance -- Parent container to search
+	@return {Controller} -- Array of loaded controllers
+]=]
 function Client.AddControllers(parent: Instance): { Controller }
 	local added: { Controller } = {}
 	for _, child in parent:GetChildren() do
@@ -116,6 +174,12 @@ function Client.AddControllers(parent: Instance): { Controller }
 	return added
 end
 
+--[=[
+	Loads controllers from all descendant ModuleScripts.
+
+	@param parent Instance -- Parent container to search
+	@return {Controller} -- Array of loaded controllers
+]=]
 function Client.AddControllersDeep(parent: Instance): { Controller }
 	local added: { Controller } = {}
 	for _, descendant in parent:GetDescendants() do
@@ -127,6 +191,12 @@ function Client.AddControllersDeep(parent: Instance): { Controller }
 	return added
 end
 
+--[=[
+	Loads controllers from `Controller.luau` files in direct child folders.
+
+	@param parent Instance -- Parent container with system folders
+	@return {Controller} -- Array of loaded controllers
+]=]
 function Client.AddSystems(parent: Instance): { Controller }
 	local added: { Controller } = {}
 	for _, systemFolder in parent:GetChildren() do
@@ -143,6 +213,12 @@ function Client.AddSystems(parent: Instance): { Controller }
 	return added
 end
 
+--[=[
+	Loads controllers from `Controller.luau` files in all descendant folders.
+
+	@param parent Instance -- Parent container to search recursively
+	@return {Controller} -- Array of loaded controllers
+]=]
 function Client.AddSystemsDeep(parent: Instance): { Controller }
 	local added: { Controller } = {}
 	for _, descendant in parent:GetDescendants() do
@@ -159,6 +235,32 @@ function Client.AddSystemsDeep(parent: Instance): { Controller }
 	return added
 end
 
+--[=[
+	Gets a proxy to a server service.
+
+	The proxy provides access to the service's Client table:
+	signals, properties, and methods.
+
+	```lua
+	local ShopService = e2en.GetService("ShopService")
+
+	-- Call methods
+	local items = ShopService:GetItems()
+
+	-- Listen to signals
+	ShopService.ItemAdded:Connect(function(item)
+		print("Got item:", item)
+	end)
+
+	-- Observe properties
+	ShopService.Coins:Observe(function(coins)
+		print("Coins:", coins)
+	end)
+	```
+
+	@param serviceName string -- The name of the service
+	@return ServiceProxy -- Proxy to the service's Client table
+]=]
 function Client.GetService(serviceName: string): ServiceProxy
 	assert(started, "Cannot get services before framework has started")
 
@@ -172,6 +274,23 @@ function Client.GetService(serviceName: string): ServiceProxy
 	return newProxy
 end
 
+--[=[
+	Registers a callback for when the local player's character spawns.
+
+	The callback fires immediately if a character already exists.
+	The trove auto-cleans when the character is removed.
+
+	```lua
+	e2en.OnCharacterAdded(function(character, trove)
+		local humanoid = character:WaitForChild("Humanoid")
+		trove:Connect(humanoid.Died, function()
+			print("Died")
+		end)
+	end)
+	```
+
+	@param callback (character: Model, trove: Trove) -> () -- The callback function
+]=]
 function Client.OnCharacterAdded(callback: (character: Model, trove: Trove) -> ())
 	table.insert(characterAddedCallbacks, callback)
 
@@ -181,14 +300,39 @@ function Client.OnCharacterAdded(callback: (character: Model, trove: Trove) -> (
 	end
 end
 
+--[=[
+	Registers a callback for when the local player's character is removed.
+
+	```lua
+	e2en.OnCharacterRemoving(function(character)
+		print("Character removing")
+	end)
+	```
+
+	@param callback (character: Model) -> () -- The callback function
+]=]
 function Client.OnCharacterRemoving(callback: (character: Model) -> ())
 	table.insert(characterRemovingCallbacks, callback)
 end
 
+--[=[
+	Gets the trove associated with the current character.
+
+	Returns nil if no character exists.
+
+	@return Trove? -- The character's trove, or nil
+]=]
 function Client.GetCharacterTrove(): Trove?
 	return characterTrove
 end
 
+--[=[
+	Gets the local player's current character.
+
+	Returns nil if no character exists.
+
+	@return Model? -- The character, or nil
+]=]
 function Client.GetCharacter(): Model?
 	return Client.Player.Character
 end
@@ -295,6 +439,12 @@ local function PreloadCommonAssets()
 	end
 end
 
+--[=[
+	Starts the client framework.
+
+	This is called automatically by the ClientLoader script.
+	Most users don't need to call this directly.
+]=]
 function Client.Start(): ()
 	assert(not started, "Framework has already started")
 	assert(RunService:IsClient(), "Client.Start can only be called on the client")
@@ -326,6 +476,14 @@ function Client.Start(): ()
 	onStartedComplete:Destroy()
 end
 
+--[=[
+	Yields until the framework has finished starting.
+
+	```lua
+	e2en.OnStart()
+	print("Framework is ready!")
+	```
+]=]
 function Client.OnStart(): ()
 	if startedComplete then
 		return
@@ -333,6 +491,11 @@ function Client.OnStart(): ()
 	onStartedComplete.Event:Wait()
 end
 
+--[=[
+	Checks if the framework has finished starting.
+
+	@return boolean -- True if the framework has started
+]=]
 function Client.IsStarted(): boolean
 	return startedComplete
 end

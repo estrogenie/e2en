@@ -1,5 +1,24 @@
 --!strict
 
+--[=[
+	@class e2en
+
+	e2en is a system-based Roblox framework with automatic client replication.
+
+	The framework provides different APIs depending on context:
+	- Server: Use `e2enServer` for creating services
+	- Client: Use `e2enClient` for creating controllers
+
+	```lua
+	-- Server
+	local e2en: Types.e2enServer = require(path.to.e2en) :: any
+	e2en.Run()
+
+	-- Client (automatically started)
+	local e2en: Types.e2enClient = require(path.to.e2en) :: any
+	```
+]=]
+
 local RunService = game:GetService("RunService")
 
 local Types = require(script.Types)

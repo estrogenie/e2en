@@ -1,5 +1,17 @@
 --!strict
 
+--[=[
+	@class e2enServer
+	@server
+
+	Server-side framework API for creating and managing services.
+
+	Access via requiring e2en on the server:
+	```lua
+	local e2en: Types.e2enServer = require(ServerScriptService.e2en) :: any
+	```
+]=]
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -143,6 +155,33 @@ local function ProcessClientTable(service: Service)
 	end
 end
 
+--[=[
+	Creates a new service.
+
+	Services are server-side singletons that handle game logic. The `Client` table
+	defines what is exposed to clients (signals, properties, and methods).
+
+	```lua
+	local MyService = e2en.CreateService({
+		Name = "MyService",
+		Client = {
+			DataChanged = e2en.CreateSignal(),
+			CurrentData = e2en.CreateProperty(0),
+		},
+	})
+
+	function MyService:Init()
+		print("Initializing")
+	end
+
+	function MyService:Start()
+		print("Starting")
+	end
+	```
+
+	@param definition ServiceDefinition -- The service definition table
+	@return Service -- The created service
+]=]
 function Server.CreateService<T>(definition: ServiceDefinition & T): Service & T
 	assert(not started, "Cannot create services after framework has started")
 
@@ -158,16 +197,38 @@ function Server.CreateService<T>(definition: ServiceDefinition & T): Service & T
 	return service :: any
 end
 
+--[=[
+	Gets a service by name.
+
+	```lua
+	local DataService = e2en.GetService("DataService")
+	```
+
+	@param serviceName string -- The name of the service
+	@return Service -- The service instance
+	@error "Service not found" -- If no service with the given name exists
+]=]
 function Server.GetService(serviceName: string): Service
 	local service = services[serviceName]
 	assert(service, `Service '{serviceName}' not found`)
 	return service
 end
 
+--[=[
+	Gets all registered services.
+
+	@return {[string]: Service} -- Dictionary of service name to service instance
+]=]
 function Server.GetServices(): { [string]: Service }
 	return services
 end
 
+--[=[
+	Loads services from direct children ModuleScripts.
+
+	@param parent Instance -- Parent container to search
+	@return {Service} -- Array of loaded services
+]=]
 function Server.AddServices(parent: Instance): { Service }
 	local added: { Service } = {}
 	for _, child in parent:GetChildren() do
@@ -179,6 +240,12 @@ function Server.AddServices(parent: Instance): { Service }
 	return added
 end
 
+--[=[
+	Loads services from all descendant ModuleScripts.
+
+	@param parent Instance -- Parent container to search
+	@return {Service} -- Array of loaded services
+]=]
 function Server.AddServicesDeep(parent: Instance): { Service }
 	local added: { Service } = {}
 	for _, descendant in parent:GetDescendants() do
@@ -190,6 +257,23 @@ function Server.AddServicesDeep(parent: Instance): { Service }
 	return added
 end
 
+--[=[
+	Loads services from `Service.luau` files in direct child folders.
+
+	This is the recommended way to organize services. Each system folder
+	contains a `Service.luau` file.
+
+	```
+	Systems/
+	├── Combat/
+	│   └── Service.luau  ← Loaded
+	├── Inventory/
+	│   └── Service.luau  ← Loaded
+	```
+
+	@param parent Instance -- Parent container with system folders
+	@return {Service} -- Array of loaded services
+]=]
 function Server.AddSystems(parent: Instance): { Service }
 	local added: { Service } = {}
 	for _, systemFolder in parent:GetChildren() do
@@ -206,6 +290,12 @@ function Server.AddSystems(parent: Instance): { Service }
 	return added
 end
 
+--[=[
+	Loads services from `Service.luau` files in all descendant folders.
+
+	@param parent Instance -- Parent container to search recursively
+	@return {Service} -- Array of loaded services
+]=]
 function Server.AddSystemsDeep(parent: Instance): { Service }
 	local added: { Service } = {}
 	for _, descendant in parent:GetDescendants() do
@@ -222,18 +312,75 @@ function Server.AddSystemsDeep(parent: Instance): { Service }
 	return added
 end
 
+--[=[
+	Creates a signal marker for use in a Service's Client table.
+
+	The marker is replaced with a RemoteSignal when the service is processed.
+
+	```lua
+	Client = {
+		PlayerDied = e2en.CreateSignal(),
+	}
+	```
+
+	@return SignalMarker
+]=]
 function Server.CreateSignal()
 	return Comm.CreateSignalMarker()
 end
 
+--[=[
+	Creates an unreliable signal marker for high-frequency, loss-tolerant data.
+
+	Uses UnreliableRemoteEvent under the hood for lower latency.
+
+	```lua
+	Client = {
+		PositionUpdate = e2en.CreateUnreliableSignal(),
+	}
+	```
+
+	@return UnreliableSignalMarker
+]=]
 function Server.CreateUnreliableSignal()
 	return Comm.CreateUnreliableSignalMarker()
 end
 
+--[=[
+	Creates a property marker for replicated state.
+
+	The marker is replaced with a RemoteProperty when the service is processed.
+	Properties support per-player overrides.
+
+	```lua
+	Client = {
+		Coins = e2en.CreateProperty(0),
+		Inventory = e2en.CreateProperty({}),
+	}
+	```
+
+	@param initialValue T -- The initial value for the property
+	@return PropertyMarker<T>
+]=]
 function Server.CreateProperty<T>(initialValue: T)
 	return Comm.CreatePropertyMarker(initialValue)
 end
 
+--[=[
+	Registers a callback for when players join.
+
+	The callback fires immediately for players already in the game.
+	The trove auto-cleans when the player leaves.
+
+	```lua
+	e2en.OnPlayerAdded(function(player, trove)
+		print(player.Name, "joined")
+		trove:Add(createPlayerState(player))
+	end)
+	```
+
+	@param callback (player: Player, trove: Trove) -> () -- The callback function
+]=]
 function Server.OnPlayerAdded(callback: (player: Player, trove: Trove) -> ())
 	table.insert(playerAddedCallbacks, callback)
 
@@ -245,10 +392,40 @@ function Server.OnPlayerAdded(callback: (player: Player, trove: Trove) -> ())
 	end
 end
 
+--[=[
+	Registers a callback for when players leave.
+
+	Use this for saving data before the player is removed.
+
+	```lua
+	e2en.OnPlayerRemoving(function(player)
+		savePlayerData(player)
+	end)
+	```
+
+	@param callback (player: Player) -> () -- The callback function
+]=]
 function Server.OnPlayerRemoving(callback: (player: Player) -> ())
 	table.insert(playerRemovingCallbacks, callback)
 end
 
+--[=[
+	Registers a callback for when characters spawn.
+
+	The callback fires immediately for existing characters.
+	The trove auto-cleans when the character is removed.
+
+	```lua
+	e2en.OnCharacterAdded(function(player, character, trove)
+		local humanoid = character:WaitForChild("Humanoid")
+		trove:Connect(humanoid.Died, function()
+			print(player.Name, "died")
+		end)
+	end)
+	```
+
+	@param callback (player: Player, character: Model, trove: Trove) -> () -- The callback function
+]=]
 function Server.OnCharacterAdded(callback: (player: Player, character: Model, trove: Trove) -> ())
 	table.insert(characterAddedCallbacks, callback)
 
@@ -261,14 +438,41 @@ function Server.OnCharacterAdded(callback: (player: Player, character: Model, tr
 	end
 end
 
+--[=[
+	Registers a callback for when characters are removed.
+
+	```lua
+	e2en.OnCharacterRemoving(function(player, character)
+		print(player.Name, "character removing")
+	end)
+	```
+
+	@param callback (player: Player, character: Model) -> () -- The callback function
+]=]
 function Server.OnCharacterRemoving(callback: (player: Player, character: Model) -> ())
 	table.insert(characterRemovingCallbacks, callback)
 end
 
+--[=[
+	Gets the trove associated with a player.
+
+	Returns nil if the player is not in the game.
+
+	@param player Player -- The player
+	@return Trove? -- The player's trove, or nil
+]=]
 function Server.GetPlayerTrove(player: Player): Trove?
 	return playerTroves[player]
 end
 
+--[=[
+	Gets the trove associated with a player's current character.
+
+	Returns nil if the player has no character.
+
+	@param player Player -- The player
+	@return Trove? -- The character's trove, or nil
+]=]
 function Server.GetCharacterTrove(player: Player): Trove?
 	return characterTroves[player]
 end
@@ -380,6 +584,14 @@ local function TopologicalSort(): { Service }
 	return sorted
 end
 
+--[=[
+	Starts the framework manually.
+
+	Most users should use `e2en.Run()` instead, which handles environment
+	allocation and system discovery automatically.
+
+	@param config RunConfig? -- Optional configuration with middleware
+]=]
 function Server.Start(config: Types.RunConfig?): ()
 	assert(not started, "Framework has already started")
 	assert(RunService:IsServer(), "Server.Start can only be called on the server")
@@ -426,6 +638,14 @@ function Server.Start(config: Types.RunConfig?): ()
 	onStartedComplete:Destroy()
 end
 
+--[=[
+	Yields until the framework has finished starting.
+
+	```lua
+	e2en.OnStart()
+	print("Framework is ready!")
+	```
+]=]
 function Server.OnStart(): ()
 	if startedComplete then
 		return
@@ -433,6 +653,11 @@ function Server.OnStart(): ()
 	onStartedComplete.Event:Wait()
 end
 
+--[=[
+	Checks if the framework has finished starting.
+
+	@return boolean -- True if the framework has started
+]=]
 function Server.IsStarted(): boolean
 	return startedComplete
 end

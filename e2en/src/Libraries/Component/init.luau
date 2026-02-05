@@ -1,5 +1,35 @@
 --!strict
 
+--[=[
+	@class Component
+
+	Binds Luau classes to Roblox instances via CollectionService tags.
+
+	When an instance gains a tag, a component instance is created.
+	When the tag is removed or instance destroyed, the component cleans up.
+
+	```lua
+	local Lava = Component.new({
+		Tag = "Lava",
+		Ancestors = { workspace },
+	})
+
+	Lava._prototype.Damage = 10
+
+	function Lava._prototype:Construct()
+		print("Lava on", self.Instance.Name)
+	end
+
+	function Lava._prototype:Start()
+		self._trove:Connect(self.Instance.Touched, function(hit)
+			-- Handle touch
+		end)
+	end
+
+	Lava:Start()
+	```
+]=]
+
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 
@@ -59,6 +89,12 @@ local function IsDescendantOfAny(instance: Instance, ancestors: { Instance }): b
 	return false
 end
 
+--[=[
+	Creates a new component class.
+
+	@param config ComponentConfig -- Configuration with Tag and optional Ancestors
+	@return Component -- The component class
+]=]
 function Component.new<T>(config: ComponentConfig): T & {
 	Tag: string,
 	GetAll: (self: any) -> { ComponentInstance<T> },
@@ -179,6 +215,12 @@ function Component._setupUpdateLoops<T>(self: ComponentClassInternal<T>)
 	end
 end
 
+--[=[
+	Starts tracking tagged instances.
+
+	Call this after defining the prototype to begin creating
+	component instances for tagged objects.
+]=]
 function Component.Start<T>(self: ComponentClassInternal<T>)
 	if self._started or self._destroyed then
 		return
@@ -210,6 +252,11 @@ function Component.Start<T>(self: ComponentClassInternal<T>)
 	self:_setupUpdateLoops()
 end
 
+--[=[
+	Gets all active component instances.
+
+	@return {ComponentInstance} -- Array of active instances
+]=]
 function Component.GetAll<T>(self: ComponentClassInternal<T>): { ComponentInstance<T> }
 	local result: { ComponentInstance<T> } = {}
 	for _, componentInstance in self._instances do
@@ -218,10 +265,23 @@ function Component.GetAll<T>(self: ComponentClassInternal<T>): { ComponentInstan
 	return result
 end
 
+--[=[
+	Gets the component instance for a tagged Instance.
+
+	@param instance Instance -- The tagged instance
+	@return ComponentInstance? -- The component, or nil if not found
+]=]
 function Component.FromInstance<T>(self: ComponentClassInternal<T>, instance: Instance): ComponentInstance<T>?
 	return self._instances[instance]
 end
 
+--[=[
+	Waits for a component instance on a tagged Instance.
+
+	@param instance Instance -- The instance to wait for
+	@param timeout number? -- Optional timeout (default 10 seconds)
+	@return ComponentInstance? -- The component, or nil if timed out
+]=]
 function Component.WaitForInstance<T>(self: ComponentClassInternal<T>, instance: Instance, timeout: number?): ComponentInstance<T>?
 	local existing = self._instances[instance]
 	if existing then
@@ -242,6 +302,9 @@ function Component.WaitForInstance<T>(self: ComponentClassInternal<T>, instance:
 	return nil
 end
 
+--[=[
+	Stops tracking and destroys all component instances.
+]=]
 function Component.Destroy<T>(self: ComponentClassInternal<T>)
 	if self._destroyed then
 		return

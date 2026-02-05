@@ -1,5 +1,31 @@
 --!strict
 
+--[=[
+	@class RemoteProperty
+	@server
+
+	Server-side replicated property with per-player overrides.
+
+	Created automatically when using `e2en.CreateProperty()` in a Service's
+	Client table.
+
+	```lua
+	-- Server
+	local MyService = e2en.CreateService({
+		Name = "MyService",
+		Client = {
+			Coins = e2en.CreateProperty(0),
+		},
+	})
+
+	-- Set for all players
+	self.Client.Coins:Set(100)
+
+	-- Set for specific player
+	self.Client.Coins:SetFor(player, 500)
+	```
+]=]
+
 local Players = game:GetService("Players")
 
 local Types = require(script.Parent.Parent.Parent.Types)
@@ -101,10 +127,20 @@ function RemoteProperty.new<T>(
 	return self :: any
 end
 
+--[=[
+	Gets the top value of the property.
+
+	@return T -- The top value
+]=]
 function RemoteProperty.Get<T>(self: RemotePropertyInternal<T>): T
 	return self._topValue
 end
 
+--[=[
+	Sets the value for all players and clears per-player overrides.
+
+	@param value T -- The new value
+]=]
 function RemoteProperty.Set<T>(self: RemotePropertyInternal<T>, value: T)
 	self._topValue = value
 	table.clear(self._perPlayer)
@@ -116,6 +152,13 @@ function RemoteProperty.Set<T>(self: RemotePropertyInternal<T>, value: T)
 	self._signal:Fire(value)
 end
 
+--[=[
+	Sets the top value without clearing per-player overrides.
+
+	Players with overrides keep their override; others get the new value.
+
+	@param value T -- The new top value
+]=]
 function RemoteProperty.SetTop<T>(self: RemotePropertyInternal<T>, value: T)
 	self._topValue = value
 	for _, player in Players:GetPlayers() do
@@ -129,6 +172,12 @@ function RemoteProperty.SetTop<T>(self: RemotePropertyInternal<T>, value: T)
 	self._signal:Fire(value)
 end
 
+--[=[
+	Sets a per-player override value.
+
+	@param player Player -- The target player
+	@param value T -- The value for this player
+]=]
 function RemoteProperty.SetFor<T>(self: RemotePropertyInternal<T>, player: Player, value: T)
 	self._perPlayer[player] = value
 	self._perPlayerSet[player] = true
@@ -138,12 +187,24 @@ function RemoteProperty.SetFor<T>(self: RemotePropertyInternal<T>, player: Playe
 	end
 end
 
+--[=[
+	Sets a per-player override for multiple players.
+
+	@param players {Player} -- The target players
+	@param value T -- The value for these players
+]=]
 function RemoteProperty.SetForList<T>(self: RemotePropertyInternal<T>, players: { Player }, value: T)
 	for _, player in players do
 		(self :: any):SetFor(player, value)
 	end
 end
 
+--[=[
+	Sets a per-player override for players matching a predicate.
+
+	@param predicate (Player) -> boolean -- Filter function
+	@param value T -- The value for matching players
+]=]
 function RemoteProperty.SetFilter<T>(self: RemotePropertyInternal<T>, predicate: (Player) -> boolean, value: T)
 	for _, player in Players:GetPlayers() do
 		if predicate(player) then
@@ -152,6 +213,11 @@ function RemoteProperty.SetFilter<T>(self: RemotePropertyInternal<T>, predicate:
 	end
 end
 
+--[=[
+	Clears a player's override, reverting them to the top value.
+
+	@param player Player -- The player to clear
+]=]
 function RemoteProperty.ClearFor<T>(self: RemotePropertyInternal<T>, player: Player)
 	self._perPlayer[player] = nil
 	self._perPlayerSet[player] = nil
@@ -161,12 +227,25 @@ function RemoteProperty.ClearFor<T>(self: RemotePropertyInternal<T>, player: Pla
 	end
 end
 
+--[=[
+	Clears overrides for multiple players.
+
+	@param players {Player} -- The players to clear
+]=]
 function RemoteProperty.ClearForList<T>(self: RemotePropertyInternal<T>, players: { Player })
 	for _, player in players do
 		(self :: any):ClearFor(player)
 	end
 end
 
+--[=[
+	Gets the value for a specific player.
+
+	Returns the per-player override if set, otherwise the top value.
+
+	@param player Player -- The player
+	@return T -- The value for this player
+]=]
 function RemoteProperty.GetFor<T>(self: RemotePropertyInternal<T>, player: Player): T
 	if self._perPlayerSet[player] then
 		return self._perPlayer[player]
@@ -174,11 +253,22 @@ function RemoteProperty.GetFor<T>(self: RemotePropertyInternal<T>, player: Playe
 	return self._topValue
 end
 
+--[=[
+	Observes changes to the top value.
+
+	The callback fires immediately with the current value, then on each change.
+
+	@param callback (value: T) -> () -- The callback function
+	@return Connection -- The connection
+]=]
 function RemoteProperty.Observe<T>(self: RemotePropertyInternal<T>, callback: (value: T) -> ()): Connection
 	callback(self._topValue)
 	return self._signal:Connect(callback)
 end
 
+--[=[
+	Destroys the property and its underlying network objects.
+]=]
 function RemoteProperty.Destroy<T>(self: RemotePropertyInternal<T>)
 	self._playerRemovingConnection:Disconnect()
 	self._remote:Destroy()
