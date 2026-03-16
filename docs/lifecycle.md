@@ -177,10 +177,6 @@ e2en.OnCharacterAdded(function(player, character, trove)
 end)
 ```
 
-## Lifecycle Timing
-
-![Server Timeline](/server-timeline.svg)
-
 ## Common Patterns
 
 ### Per-Player State

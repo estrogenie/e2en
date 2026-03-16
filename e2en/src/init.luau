@@ -109,6 +109,7 @@ if IS_SERVER and Core.Server then
 		OnPlayerAdded = Server.OnPlayerAdded,
 		OnPlayerRemoving = Server.OnPlayerRemoving,
 		OnCharacterAdded = Server.OnCharacterAdded,
+		OnCharacterAppearanceLoaded = Server.OnCharacterAppearanceLoaded,
 		OnCharacterRemoving = Server.OnCharacterRemoving,
 		GetPlayerTrove = Server.GetPlayerTrove,
 		GetCharacterTrove = Server.GetCharacterTrove,
@@ -166,6 +167,7 @@ else
 		GetService = Client.GetService,
 
 		OnCharacterAdded = Client.OnCharacterAdded,
+		OnCharacterAppearanceLoaded = Client.OnCharacterAppearanceLoaded,
 		OnCharacterRemoving = Client.OnCharacterRemoving,
 		GetCharacterTrove = Client.GetCharacterTrove,
 		GetCharacter = Client.GetCharacter,

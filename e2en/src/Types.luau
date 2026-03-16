@@ -233,6 +233,7 @@ export type e2enServer = e2enShared & {
 	OnPlayerAdded: (callback: PlayerCallbackServer) -> (),
 	OnPlayerRemoving: (callback: (player: Player) -> ()) -> (),
 	OnCharacterAdded: (callback: CharacterCallbackServer) -> (),
+	OnCharacterAppearanceLoaded: (callback: CharacterCallbackServer) -> (),
 	OnCharacterRemoving: (callback: (player: Player, character: Model) -> ()) -> (),
 	GetPlayerTrove: (player: Player) -> Trove?,
 	GetCharacterTrove: (player: Player) -> Trove?,
@@ -255,6 +256,7 @@ export type e2enClient = e2enShared & {
 	GetService: (serviceName: string) -> { [string]: any },
 
 	OnCharacterAdded: (callback: CharacterCallbackClient) -> (),
+	OnCharacterAppearanceLoaded: (callback: CharacterCallbackClient) -> (),
 	OnCharacterRemoving: (callback: (character: Model) -> ()) -> (),
 	GetCharacterTrove: () -> Trove?,
 	GetCharacter: () -> Model?,

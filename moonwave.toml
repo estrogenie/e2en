@@ -6,7 +6,7 @@ title = "e2en"
 tagline = "A system-based Roblox framework with automatic client replication"
 url = "https://estrogenie.github.io"
 baseUrl = "/e2en/"
-favicon = "/favicon.svg"
+
 organizationName = "estrogenie"
 projectName = "e2en"
 

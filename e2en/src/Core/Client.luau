@@ -58,6 +58,7 @@ local onStartedComplete = Instance.new("BindableEvent")
 local characterTrove: Trove? = nil
 
 local characterAddedCallbacks: { (character: Model, trove: Trove) -> () } = {}
+local characterAppearanceCallbacks: { (character: Model, trove: Trove) -> () } = {}
 local characterRemovingCallbacks: { (character: Model) -> () } = {}
 
 local servicesFolder: Folder? = nil
@@ -306,6 +307,32 @@ function Client.OnCharacterAdded(callback: (character: Model, trove: Trove) -> (
 end
 
 --[=[
+	Registers a callback for when the local player's character appearance has fully loaded.
+
+	The callback fires immediately if a character with loaded appearance already exists.
+	The trove auto-cleans when the character is removed.
+
+	```lua
+	e2en.OnCharacterAppearanceLoaded(function(character, trove)
+		local shirt = character:FindFirstChildOfClass("Shirt")
+		if shirt then
+			print("Wearing", shirt.ShirtTemplate)
+		end
+	end)
+	```
+
+	@param callback (character: Model, trove: Trove) -> () -- The callback function
+]=]
+function Client.OnCharacterAppearanceLoaded(callback: (character: Model, trove: Trove) -> ())
+	table.insert(characterAppearanceCallbacks, callback)
+
+	local character = Client.Player.Character
+	if character and characterTrove and Client.Player:HasAppearanceLoaded() then
+		task.spawn(callback, character, characterTrove)
+	end
+end
+
+--[=[
 	Registers a callback for when the local player's character is removed.
 
 	```lua
@@ -342,11 +369,29 @@ function Client.GetCharacter(): Model?
 	return Client.Player.Character
 end
 
+local function HandleCharacterAppearanceLoaded(character: Model)
+	if not characterTrove then
+		return
+	end
+
+	for _, callback in characterAppearanceCallbacks do
+		task.spawn(callback, character, characterTrove :: Trove)
+	end
+end
+
 local function HandleCharacterAdded(character: Model)
 	characterTrove = Trove.new()
 
 	for _, callback in characterAddedCallbacks do
 		task.spawn(callback, character, characterTrove :: Trove)
+	end
+
+	if Client.Player:HasAppearanceLoaded() then
+		HandleCharacterAppearanceLoaded(character)
+	else
+		(characterTrove :: Trove):Add(Client.Player.CharacterAppearanceLoaded:Connect(function(loadedCharacter)
+			HandleCharacterAppearanceLoaded(loadedCharacter)
+		end))
 	end
 end
 

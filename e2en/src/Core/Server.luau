@@ -61,6 +61,7 @@ local characterTroves: { [Player]: Trove } = {}
 local playerAddedCallbacks: { (player: Player, trove: Trove) -> () } = {}
 local playerRemovingCallbacks: { (player: Player) -> () } = {}
 local characterAddedCallbacks: { (player: Player, character: Model, trove: Trove) -> () } = {}
+local characterAppearanceCallbacks: { (player: Player, character: Model, trove: Trove) -> () } = {}
 local characterRemovingCallbacks: { (player: Player, character: Model) -> () } = {}
 
 local servicesFolder: Folder
@@ -441,6 +442,35 @@ function Server.OnCharacterAdded(callback: (player: Player, character: Model, tr
 end
 
 --[=[
+	Registers a callback for when a character's appearance has fully loaded.
+
+	The callback fires immediately for existing characters whose appearance
+	is already loaded. The trove auto-cleans when the character is removed.
+
+	```lua
+	e2en.OnCharacterAppearanceLoaded(function(player, character, trove)
+		local shirt = character:FindFirstChildOfClass("Shirt")
+		if shirt then
+			print(player.Name, "is wearing", shirt.ShirtTemplate)
+		end
+	end)
+	```
+
+	@param callback (player: Player, character: Model, trove: Trove) -> () -- The callback function
+]=]
+function Server.OnCharacterAppearanceLoaded(callback: (player: Player, character: Model, trove: Trove) -> ())
+	table.insert(characterAppearanceCallbacks, callback)
+
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local trove = characterTroves[player]
+		if character and trove and player:HasAppearanceLoaded() then
+			task.spawn(callback, player, character, trove)
+		end
+	end
+end
+
+--[=[
 	Registers a callback for when characters are removed.
 
 	```lua
@@ -479,12 +509,31 @@ function Server.GetCharacterTrove(player: Player): Trove?
 	return characterTroves[player]
 end
 
+local function HandleCharacterAppearanceLoaded(player: Player, character: Model)
+	local trove = characterTroves[player]
+	if not trove then
+		return
+	end
+
+	for _, callback in characterAppearanceCallbacks do
+		task.spawn(callback, player, character, trove)
+	end
+end
+
 local function HandleCharacterAdded(player: Player, character: Model)
 	local trove = Trove.new()
 	characterTroves[player] = trove
 
 	for _, callback in characterAddedCallbacks do
 		task.spawn(callback, player, character, trove)
+	end
+
+	if player:HasAppearanceLoaded() then
+		HandleCharacterAppearanceLoaded(player, character)
+	else
+		trove:Add(player.CharacterAppearanceLoaded:Connect(function(loadedCharacter)
+			HandleCharacterAppearanceLoaded(player, loadedCharacter)
+		end))
 	end
 end
 
